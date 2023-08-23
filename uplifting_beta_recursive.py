@@ -1,4 +1,5 @@
-from sympy import Pow
+import math
+from sympy import Pow, sqrt
 import numpy as np
 from sympy.polys.ring_series import ring,PolyElement,rs_series_inversion,rs_series,_rs_series,rs_trunc
 from sympy import RR, parse_expr,Matrix,simplify,Mod,Add,Mul,Pow,real_roots,symbols,Poly,roots,nan,re,eye,Identity,series,solve,Rational,div,degree,integer_nthroot,binomial,GF
@@ -9,7 +10,7 @@ from sympy.core.numbers import One,sympify,Float,S
 from sympy.core.rules import Transform
 import signal
 from sympy.polys.specialpolys import random_poly
-
+from itertools import *
 import scipy.spatial
 
 
@@ -159,11 +160,10 @@ def golden_lifting(p_shift,mtpcty,info):
             r = test_mtpcty[0]
             info.root_dict_list.append(order_roots(r))
          else:
-            info = calculate_smallest_root_q_x(new_poly,info)
+            calculate_smallest_root_q_x(new_poly,info)
    else:
       r = roots(new_poly)
       info.root_dict_list.append(order_roots(r))
-   return info
 
 
 def calculate_smallest_root_q_x(p,info):
@@ -172,8 +172,9 @@ def calculate_smallest_root_q_x(p,info):
    root_dict,shift_number,_ = get_sub_x_root(p,info.x_lift)
    if(shift_number):
       info.root_dict_list.append(root_dict)
+      return
    if (check_done(p,info)):
-      return info
+      return
 
    
    #lift the polynomial horizontally when all its roots are zeroes
@@ -185,29 +186,19 @@ def calculate_smallest_root_q_x(p,info):
       p_shift = shift_vertically(p,x**(min_slope)) 
       info.x_lift = -min_slope
       info.d = info.d-1
-      info = calculate_smallest_root_q_x(p_shift,info)
-      return info
-   p_shift = p
-   return info
+      calculate_smallest_root_q_x(p_shift,info)
 
 def check_done(p,info):
    return (p(nsimplify(calculate_alpha(info), tolerance=0.001, rational=True)) == 0)
 
-#Calculates the "smallest" root of a polynomial over the Puiseux field
-def calculate_smallest_root(p,info):
-   if (check_done(p,info)):
-      return info
-   
-   #TOODO ADD ROOT DICT TO GLOBAL OBJECT
-   root_dict,shift_number,mtpcty = get_sub_x_root(p,info.x_lift)
+def calculate_initial_shift(p,info):
+   root_dict,shift_number, _ = get_sub_x_root(p,info.x_lift)
    if (shift_number):
       info.root_dict_list.append(root_dict)
-   if (check_done(p,info)):
-      return info
+      return p
 
    #lift the polynomial horizontally when all its roots are zeroes
-   if (shift_number == 0):
-      
+   else:
       slopes = get_newton_slopes(p)
       slopes = [x for x in slopes if x != 0]
       min_slope = min(np.abs(slopes))
@@ -215,22 +206,29 @@ def calculate_smallest_root(p,info):
       info.x_lift = min_slope
       info.d = info.d-1
       info = calculate_smallest_root_q_x(p_shift,info)
-      if (check_done(p,info)):
-         return info
-      
+      return p_shift
+
+
+#Calculates the "smallest" root of a polynomial over the Puiseux field
+def calculate_smallest_root(p,info):
+   
+   p_shift = calculate_initial_shift(p,info)
+   if (check_done(p,info)):
+      return    
    print(calculate_alpha(info))
-   p_shift = p
+
    for _ in range(1,info.d):
+
       info.d = info.d-1
       p_shift = shift_horizontally(p_shift,calculate_h_shift(info))
-      info = golden_lifting(p_shift,mtpcty,info)
-      last_root = info.root_dict_list[-1]
-      info.h_lift = list(last_root)[0]
-      #print(calculate_alpha(info))
-      mtpcty = list(last_root.values())[0]
+      mtpcty = list(info.root_dict_list[-1].values())[0]
+      
+      golden_lifting(p_shift,mtpcty,info)
       if (check_done(p,info)):
-         return info
-   return info
+         return 
+      if (p_shift == 0):
+         return 
+   return 
 
 def get_lower(polygon):
    minx = np.argmin(polygon[:, 0])
@@ -258,17 +256,30 @@ def get_newton_slopes(f):
          else:
                newton_points.append([k.as_base_exp()[1], v.atoms(Pow).pop().as_base_exp()[1]])
       else:
-         if (k.as_base_exp()[0] == 1):
+         if (x in v.free_symbols):
+            if (k.as_base_exp()[0] == 1):
                newton_points.append([0, v.atoms().pop().coeff(x)])
+            else:
+               newton_points.append([k.as_base_exp()[1],1])
          else:
-               newton_points.append([k.as_base_exp()[1],0])
+            if (k.as_base_exp()[0] == 1):
+                  newton_points.append([0, v.atoms().pop().coeff(x)])
+            else:
+                  newton_points.append([k.as_base_exp()[1],0])
 
 
    points = np.asarray(newton_points)
-   hull = scipy.spatial.ConvexHull(points)
+   terminated = False
+   try:
+      hull = scipy.spatial.ConvexHull(points)
 
-   lower_curve = get_lower(points[hull.vertices])
-   slopes = [slope(lower_curve[i],lower_curve[i+1]) for i in range(len(lower_curve)-1)]
+      lower_curve = get_lower(points[hull.vertices])
+      slopes = [slope(lower_curve[i],lower_curve[i+1]) for i in range(len(lower_curve)-1)]
+      terminated = True
+   except:
+      pass
+   if (not terminated):
+      slopes = [slope(points[0],points[-1])]
    return slopes
 
 def random_poly_puiseux(d_x,d_y,a,b,frac_exp,domain):
@@ -285,8 +296,11 @@ def random_poly_puiseux(d_x,d_y,a,b,frac_exp,domain):
    #p = Poly(lin_facs,y)
    return p,lin_facs
 
-def pouteaux_poly(N,domain):
-   p = Poly(1,y,domain=domain)
+def pouteaux_poly(N,domain = False):
+   if (domain):
+      p = Poly(1,y,domain=domain)
+   else:
+      p = Poly(1,y)
    lin_facs = []
 
    for i in range(N):
@@ -306,6 +320,21 @@ def pouteaux_poly_2(N,domain = False):
    else:
       p = Poly((y - x**N )*(y**2 - x**3 ),y)
    return p
+
+def pouteaux_poly_3(N,domain = False):
+   print("")
+
+def swinnerton_dyer(N):
+   combos = list(product([0,1],repeat=N))
+   lin_facs = []
+   p = Poly(1,y)
+   for combo in combos:
+      lin_fac = y
+      for i in range(len(combo)):
+         lin_fac += (-1)**combo[i] * sqrt(x+i)
+      lin_facs.append(lin_fac)
+      p*=lin_fac
+   return p,lin_facs
 ##TODO EXAMPLES
 ##Examples that have the properties
 ##for each combination we want an example
@@ -318,7 +347,7 @@ def pouteaux_poly_2(N,domain = False):
 
 #def random_poly()
 
-d = 15
+d = 10
 x_lift = 0
 root_dict_list = []
 info = Info(d,root_dict_list,x_lift)
@@ -328,13 +357,16 @@ a = 0
 b = 5
 frac_exp = 20
 #p_r, lin_facs = random_poly_puiseux(d_x,d_y,a,b,frac_exp)
-p_p_N = 3
-domain = K[x]
-p_p, lin_facs = pouteaux_poly(p_p_N,domain)
-p_p = pouteaux_poly_2(p_p_N)
+p_p_N = 10
+#domain = K[x]
+#p_p, lin_facs = pouteaux_poly(p_p_N)
+#p_p = pouteaux_poly_2(p_p_N)
+p_s,lin_facs = swinnerton_dyer(2)
 #p_t = Poly((y-(1+3*x**(Rational(1,2))+5*x**2))*(y-(1+3*x**(Rational(4,10))+3*x**2))*(y-(4 + 2*x)),y)
 #p_t_ = p_t*p_t*p_t
-info = calculate_smallest_root(p_p,info)
+
+
+calculate_smallest_root(p_s,info)
 alpha = calculate_alpha(info)
 print("The first root is: " + str(alpha))
 print("")
