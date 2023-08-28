@@ -1,8 +1,9 @@
 import math
 from sympy import Pow, sqrt
 import numpy as np
-from sympy.polys.ring_series import ring,PolyElement,rs_series_inversion,rs_series,_rs_series,rs_trunc
-from sympy import RR, parse_expr,Matrix,simplify,Mod,Add,Mul,Pow,real_roots,symbols,Poly,roots,nan,re,eye,Identity,series,solve,Rational,div,degree,integer_nthroot,binomial,GF
+from sympy.polys import ZZ,ring
+from sympy.polys.ring_series import PolyElement,rs_series_inversion,rs_series,_rs_series,rs_trunc
+from sympy import RR, parse_expr,Matrix,simplify,Mod,Add,Mul,Pow,real_roots,symbols,Poly,roots,nan,re,eye,Identity,series,solve,Rational,div,degree,integer_nthroot,binomial,GF,parse_expr
 import random
 from sympy.simplify.simplify import nsimplify
 import collections
@@ -12,6 +13,8 @@ import signal
 from sympy.polys.specialpolys import random_poly
 from itertools import *
 import scipy.spatial
+import time
+from sympy.polys.polyfuncs import horner
 
 
 class TimeoutException(Exception):   # Custom exception class
@@ -76,6 +79,12 @@ def calculate_alpha(info):
 def calculate_h_shift(info):
    return list(info.root_dict_list[-1])[0]
 
+def shift_horizontally(p,shift):
+   print("We shift horizontally by: " + str(shift))
+   q = horner(p,wrt=y)
+   return_poly_1 = Poly(q.subs(y,y+shift),y)
+   return return_poly_1
+
 def shift_vertically(p,mtp):   
    coeffs = p.all_coeffs()
    l_coeffs =len(coeffs)
@@ -121,15 +130,7 @@ def get_sub_x_root(p,x_lift):
       s_r = 0
       mtpcty = p_r_old[0]
       
-   return p_r,s_r,mtpcty
-
-
-
-
-def shift_horizontally(p,shift):
-   print("We shift horizontally by: " + str(shift))
-   return Poly((p(z+shift)).subs(z,y),y)
-
+   return p_r,s_r
 
 def golden_lifting(p_shift,mtpcty,info):
    shifted_coeffs = list(reversed(p_shift.coeffs()[1:]))
@@ -169,7 +170,7 @@ def golden_lifting(p_shift,mtpcty,info):
 def calculate_smallest_root_q_x(p,info):
 
    #TOODO ADD ROOT DICT TO GLOBAL OBJECT
-   root_dict,shift_number,_ = get_sub_x_root(p,info.x_lift)
+   root_dict,shift_number = get_sub_x_root(p,info.x_lift)
    if(shift_number):
       info.root_dict_list.append(root_dict)
       return
@@ -192,7 +193,7 @@ def check_done(p,info):
    return (p(nsimplify(calculate_alpha(info), tolerance=0.001, rational=True)) == 0)
 
 def calculate_initial_shift(p,info):
-   root_dict,shift_number, _ = get_sub_x_root(p,info.x_lift)
+   root_dict,shift_number = get_sub_x_root(p,info.x_lift)
    if (shift_number):
       info.root_dict_list.append(root_dict)
       return p
@@ -282,7 +283,7 @@ def get_newton_slopes(f):
       slopes = [slope(points[0],points[-1])]
    return slopes
 
-def random_poly_puiseux(d_x,d_y,a,b,frac_exp,domain):
+def random_poly_puiseux(d_x,d_y,a,b,frac_exp):
    p = Poly(1,y,domain='ZZ[x**(1/10)]')
    lin_facs = []
    for _ in range(d_y):
@@ -351,22 +352,34 @@ d = 10
 x_lift = 0
 root_dict_list = []
 info = Info(d,root_dict_list,x_lift)
-d_x = 5
-d_y = 5
+d_x = 3
+d_y = 3
 a = 0
 b = 5
 frac_exp = 20
-#p_r, lin_facs = random_poly_puiseux(d_x,d_y,a,b,frac_exp)
-p_p_N = 10
+p_p_N = 4
+
+#Types of singularites
+crunode = Poly(x**2 - y**2,y) 
+cusp = Poly(x**3 - y**2,y)
+tacnode = Poly(x**4 - y**2,y)
+rhampoid_cusp = Poly(x**5 - y**2,y)
 #domain = K[x]
-#p_p, lin_facs = pouteaux_poly(p_p_N)
+p_p, lin_facs = pouteaux_poly(p_p_N)
 #p_p = pouteaux_poly_2(p_p_N)
-p_s,lin_facs = swinnerton_dyer(2)
-#p_t = Poly((y-(1+3*x**(Rational(1,2))+5*x**2))*(y-(1+3*x**(Rational(4,10))+3*x**2))*(y-(4 + 2*x)),y)
+#p_s,lin_facs = swinnerton_dyer(3)
 #p_t_ = p_t*p_t*p_t
+#p_r = Poly(y**3 + (-5*x**(1/14) - 2*x**(1/10) - 4*x**(2/9) - 2*x**(1/7) - x**(1/6) - 4*x**(1/4) - 10)*y**2 + (8*x**(29/90) + 8*x**(23/63) + 2*x**(13/42) + 16*x**(17/36) + 10*x**(6/35) + 8*x**(11/28) + 20*x**(9/28) + 5*x**(5/21) + 8*x**(7/20) + 4*x**(7/18) + 2*x**(4/15) + 10*x**(3/14) + 30*x**(1/14) + 18*x**(1/10) + 24*x**(2/9) + 18*x**(1/7) + 5*x**(1/6) + 20*x**(1/4) + 29)*y - 32*x**(155/252) - 10*x**(71/210) - 32*x**(103/180) - 40*x**(59/140) - 8*x**(67/126) - 40*x**(29/90) - 40*x**(23/63) - 8*x**(22/45) - 8*x**(13/42) - 16*x**(17/36) - 50*x**(6/35) - 40*x**(13/28) - 32*x**(11/28) - 20*x**(9/28) - 10*x**(8/21) - 5*x**(5/21) - 32*x**(7/20) - 4*x**(7/18) - 8*x**(4/15) - 50*x**(3/14) - 25*x**(1/14) - 40*x**(1/10) - 20*x**(2/9) - 40*x**(1/7) - 4*x**(1/6) - 16*x**(1/4) - 20, y, domain='ZZ[x**(1/10)]')
+
+p_r, lin_facs = random_poly_puiseux(d_x,d_y,a,b,frac_exp)
+#p_r = Poly((y-(1+3*x**(Rational(1,2))+5*x**2))*(y-(1+3*x**(Rational(4,10))+3*x**2))*(y-(4 + 2*x)),y)
+#*(y-(2+4*x)*
+p_r(100)
 
 
-calculate_smallest_root(p_s,info)
+
+p_r = Poly((y-(3+3*x))*(y-(2+3*x)),y)
+calculate_smallest_root(p_r,info)
 alpha = calculate_alpha(info)
 print("The first root is: " + str(alpha))
 print("")
