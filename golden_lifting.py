@@ -74,13 +74,13 @@ def calculate_h_shift(info):
    return list(info.root_dict_list[-1])[0]
 
 def shift_horizontally(p,shift):
-   print("We shift horizontally by: " + str(shift))
+   #print("We shift horizontally by: " + str(shift))
    q = horner(p,wrt=y)
    return_poly_1 = Poly(q.subs(y,y+shift),y)
    return return_poly_1
 
 def shift_horizontally_2(p,shift,mtpcty):
-   print("We shift horizontally by: " + str(shift))
+   #print("We shift horizontally by: " + str(shift))
    coeffs = p.all_coeffs()
    return_poly = Poly(0,y)
    for i in range(mtpcty):
@@ -93,7 +93,7 @@ def shift_vertically(p,mtp):
    coeffs = p.all_coeffs()
    l_coeffs =len(coeffs)
    new_poly = sum([coeffs[i]*mtp**i*y**(l_coeffs-i) for i in range(l_coeffs)])
-   print("We shift vertically by: " + str(mtp))
+   #print("We shift vertically by: " + str(mtp))
    return Poly(new_poly,y)
 
 def order_roots(p_r):
@@ -127,20 +127,17 @@ def get_sub_x_root(p,x_lift):
    if (p_r):
       p_r = collections.OrderedDict(sorted(p_r.items(), key=lambda _:_[0].as_coeff_exponent(x)[0]))
       s_r = list(p_r)[0]
-      #s_r = p_r_list[0]
-      mtpcty = p_r[s_r]
    #smallest root if not zero
    else:
       s_r = 0
-      mtpcty = p_r_old[0]
       
    return p_r,s_r
 
 def golden_lifting(p_shift,mtpcty,info):
-   shifted_coeffs = list(reversed(p_shift.coeffs()[1:]))
+   shifted_coeffs = list(reversed(p_shift.coeffs()))
    cutoff_coeffs = []
    #SET MULTIPLICTIY TO 1
-   for i in range(min(len(shifted_coeffs),mtpcty+1)):
+   for i in range(mtpcty+1):
       coeff = shifted_coeffs[i]
       terms = coeff.as_ordered_terms()
       lowest_term = min(terms, key=lambda term: term.as_coeff_exponent(x)[1])
@@ -187,7 +184,7 @@ def calculate_smallest_root_q_x(p,info):
       
       slopes = get_newton_slopes(p)
       slopes = [x for x in slopes if x!= 0]
-      min_slope = nsimplify(min(slopes))
+      min_slope = nsimplify(min(slopes,key=abs))
       p_shift = shift_vertically(p,x**(min_slope)) 
       info.x_lift = -min_slope
       info.d = info.d-1
@@ -222,12 +219,13 @@ def calculate_smallest_root(p,info):
       return    
    print(calculate_alpha(info))
 
-   for _ in range(1,info.d):
+   for i in range(1,info.d):
 
       info.d = info.d-1
       p_shift = shift_horizontally(p_shift,calculate_h_shift(info))
       mtpcty = list(info.root_dict_list[-1].values())[0]
-      
+      print(i)
+      print(p_shift)
       golden_lifting(p_shift,mtpcty,info)
       if (check_done(p,info)):
          return 
