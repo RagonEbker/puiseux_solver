@@ -30,9 +30,7 @@ d = symbols("d")
 e = symbols("e")
 f = symbols("f")
 g = symbols("g")
-# p = 
-K = GF(131)
-##TODO PRECISION EINBAUEN
+
 class Info:
   #Precision d
   #x_lifts
@@ -99,17 +97,12 @@ def shift_vertically(p,mtp):
 def order_roots(p_r):
    p_r = collections.OrderedDict(sorted(p_r.items(), key=lambda _:_[0].as_coeff_exponent(x)[0]))
    return p_r
-#Checks if our Polynomial consist of exactly one root
-##TODO For the lift we need the multiplicity
-##REWRITE THIS
-##DO THIS WITH THE ROOTS FUNCTION SOOO MUCH EASIER
+
 
 
 def check_one_root(p):
    r = roots(p)
-   # if(len(list(r)) == 1):
-   #    return (r,True)
-   # else:
+
       
    return (r, False)
 
@@ -120,8 +113,6 @@ def get_sub_x_root(p,x_lift):
    p_r_old = roots(p_x)
    p_r = dict()
    for key, value in p_r_old.items():
-    # do something with value
-    ##maybe say if value != 0
     if (key): p_r[key*x**x_lift] = value
 
    if (p_r):
@@ -136,7 +127,6 @@ def get_sub_x_root(p,x_lift):
 def golden_lifting(p_shift,mtpcty,info):
    shifted_coeffs = list(reversed(p_shift.coeffs()))
    cutoff_coeffs = []
-   #SET MULTIPLICTIY TO 1
    for i in range(mtpcty+1):
       coeff = shifted_coeffs[i]
       terms = coeff.as_ordered_terms()
@@ -149,7 +139,7 @@ def golden_lifting(p_shift,mtpcty,info):
          #here we test if new_poly consists of just a single root
          check_test_mtpcty = False
          try:
-            timeout = 10
+            #timeout = 10
             #signal.alarm(timeout)
             try: 
                test_mtpcty = check_one_root(new_poly)
@@ -170,7 +160,6 @@ def golden_lifting(p_shift,mtpcty,info):
 
 def calculate_smallest_root_q_x(p,info):
 
-   #TOODO ADD ROOT DICT TO GLOBAL OBJECT
    root_dict,shift_number = get_sub_x_root(p,info.x_lift)
    if(shift_number):
       info.root_dict_list.append(root_dict)

@@ -1,7 +1,7 @@
 from math import sqrt
 import random
 import time
-from uplifting_beta_recursive import Info,calculate_smallest_root,calculate_alpha
+from golden_lifting import Info,calculate_smallest_root,calculate_alpha
 from sympy import Poly, Rational, random_poly,symbols,nsimplify,roots
 from itertools import *
 
